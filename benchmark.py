@@ -1,6 +1,6 @@
 """
 Модуль замеров: запускает алгоритмы на данных разных типов и размеров,
-собирает время, число сравнений и перестановок, проверяет корректность.
+собирает время, число сравнений и перестановок, проверяет корректность
 """
 
 from __future__ import annotations
@@ -29,9 +29,8 @@ class Result:
 def measure(func, data, repeats):
     """
     Замеряет среднее время работы func(data).
-    Если один прогон длится дольше 0.5 с, повторные прогоны не делаются —
-    для медленных алгоритмов это экономит время.
-    Возвращает (среднее_время, сравнения, перестановки, корректно_ли).
+    Если один прогон длится дольше 0.5 с, повторные прогоны не делаются
+    Возвращает (среднее время, сравнения, перестановки, корректно ли)
     """
     times = []
     result = None
@@ -50,7 +49,7 @@ def measure(func, data, repeats):
 def run_benchmark(algorithm_names, kinds, sizes, repeats=3, time_limit=10.0,
                   seed=42, progress=None, cancel=None):
     """
-    Основной цикл эксперимента.
+    Основной цикл эксперимента
 
     algorithm_names — список названий из ALGORITHMS
     kinds           — список типов данных
@@ -61,7 +60,7 @@ def run_benchmark(algorithm_names, kinds, sizes, repeats=3, time_limit=10.0,
     progress        — функция progress(сделано, всего, сообщение)
     cancel          — threading.Event; если установлен, эксперимент прерывается
 
-    Возвращает список Result.
+    Возвращает список Result
     """
     sizes = sorted(set(sizes))
     total = len(kinds) * len(sizes) * len(algorithm_names)
@@ -92,7 +91,7 @@ def run_benchmark(algorithm_names, kinds, sizes, repeats=3, time_limit=10.0,
 
 
 def export_csv(results, path):
-    """Сохраняет результаты в CSV (разделитель ';', чтобы открывался в Excel)."""
+    """Сохраняет результаты в CSV"""
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";")
         w.writerow(["Алгоритм", "Тип данных", "n", "Время, мс",
@@ -108,23 +107,11 @@ def export_csv(results, path):
             ])
 
 
-# ---------------------------------------------------------------------------
+
 # Анализ результатов
-# ---------------------------------------------------------------------------
+
 
 def empirical_exponent(sizes, times, last_points=4):
-    """
-    Оценивает показатель степени k в зависимости t ≈ c · n^k
-    методом наименьших квадратов на логарифмических осях.
-
-    Идея: если t = c·n^k, то ln t = ln c + k·ln n — это прямая, а её наклон и есть k.
-      O(n)        -> k ≈ 1
-      O(n log n)  -> k ≈ 1.1 – 1.3 на практике
-      O(n²)       -> k ≈ 2
-
-    Используются последние точки (большие n), потому что на малых n сильнее
-    влияют накладные расходы. Возвращает None, если точек меньше трёх.
-    """
     pts = [(math.log(n), math.log(t)) for n, t in zip(sizes, times)
            if n > 0 and t is not None and t > 0]
     pts = pts[-last_points:]
@@ -139,7 +126,7 @@ def empirical_exponent(sizes, times, last_points=4):
 
 
 def series(results, algorithm, kind):
-    """Возвращает (размеры, результаты) для одной линии графика, без пропущенных."""
+    """Возвращает (размеры, результаты) для одной линии графика, без пропущенных"""
     rows = sorted((r for r in results
                    if r.algorithm == algorithm and r.kind == kind and not r.skipped),
                   key=lambda r: r.size)
@@ -147,9 +134,9 @@ def series(results, algorithm, kind):
 
 
 def build_conclusions(results):
-    """Формирует текстовые выводы по результатам эксперимента."""
+    """Формирует текстовые выводы по результатам эксперимента"""
     if not results:
-        return "Пока нет результатов. Запустите эксперимент."
+        return 
 
     lines = []
     kinds = []
@@ -159,12 +146,12 @@ def build_conclusions(results):
 
     wrong = [r for r in results if not r.correct]
     if wrong:
-        lines.append("⚠ ВНИМАНИЕ: найдены некорректные результаты сортировки!")
+        lines.append(" ВНИМАНИЕ: найдены некорректные результаты сортировки!")
         for r in wrong:
             lines.append(f"   {r.algorithm}, {r.kind}, n={r.size}")
         lines.append("")
     else:
-        lines.append("✓ Все алгоритмы отсортировали все массивы корректно.")
+        lines.append(" Все алгоритмы отсортировали все массивы корректно.")
         lines.append("")
 
     for kind in kinds:
