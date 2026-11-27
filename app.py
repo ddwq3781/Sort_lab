@@ -348,49 +348,90 @@ def create_chart_tab():
 def create_table_tab():
     global tree
 
-    tab = ttk.Frame(notebook, padding=6)
+    tab = ttk.Frame(notebook, padding=10)
     notebook.add(tab, text="  Таблица  ")
+
+    ttk.Label(
+        tab,
+        text="Результаты эксперимента",
+        font=("Segoe UI", 13, "bold")
+    ).pack(anchor="w", pady=(0, 3))
+
+    ttk.Label(
+        tab,
+        text="Время указано в миллисекундах. Пропущенные замеры отмечены отдельно.",
+        foreground="#666666"
+    ).pack(anchor="w", pady=(0, 10))
+
+    table_frame = ttk.Frame(tab)
+    table_frame.pack(fill="both", expand=True)
 
     cols = ("alg", "kind", "n", "time", "cmp", "mv", "ok")
 
     heads = (
         "Алгоритм",
         "Тип данных",
-        "n",
+        "Размер массива",
         "Время, мс",
         "Сравнения",
-        "Перестановки/записи",
-        "Верно"
+        "Перестановки / записи",
+        "Результат"
     )
 
-    widths = (170, 170, 80, 110, 130, 150, 60)
+    widths = (175, 165, 115, 105, 120, 165, 105)
+
+    style = ttk.Style(root)
+    style.configure(
+        "Results.Treeview",
+        font=("Segoe UI", 10),
+        rowheight=29
+    )
+    style.configure(
+        "Results.Treeview.Heading",
+        font=("Segoe UI", 10, "bold"),
+        padding=(6, 9)
+    )
 
     tree = ttk.Treeview(
-        tab,
+        table_frame,
         columns=cols,
-        show="headings"
+        show="headings",
+        style="Results.Treeview"
     )
 
     for c, h, w in zip(cols, heads, widths):
         tree.heading(c, text=h)
 
-        anchor = "w"
+        anchor = "w" if c in ("alg", "kind") else "center"
+        tree.column(c, width=w, minwidth=75, anchor=anchor, stretch=True)
 
-        if c not in ("alg", "kind"):
-            anchor = "e"
+    tree.tag_configure("even", background="#f3f6fa")
+    tree.tag_configure("odd", background="#ffffff")
+    tree.tag_configure("wrong", background="#fce8e6")
+    tree.tag_configure("skipped", foreground="#777777")
 
-        tree.column(c, width=w, anchor=anchor)
-
-    sb = ttk.Scrollbar(
-        tab,
+    vertical = ttk.Scrollbar(
+        table_frame,
         orient="vertical",
         command=tree.yview
     )
+    horizontal = ttk.Scrollbar(
+        table_frame,
+        orient="horizontal",
+        command=tree.xview
+    )
 
-    tree.configure(yscrollcommand=sb.set)
+    tree.configure(
+        yscrollcommand=vertical.set,
+        xscrollcommand=horizontal.set
+    )
 
-    tree.pack(side="left", fill="both", expand=True)
-    sb.pack(side="right", fill="y")
+    tree.grid(row=0, column=0, sticky="nsew")
+    vertical.grid(row=0, column=1, sticky="ns")
+    horizontal.grid(row=1, column=0, sticky="ew")
+
+    table_frame.rowconfigure(0, weight=1)
+    table_frame.columnconfigure(0, weight=1)
 
 
 def create_conclusions_tab():
@@ -798,11 +839,18 @@ def redraw_chart(event=None):
 def fill_table():
     tree.delete(*tree.get_children())
 
-    for r in results:
+    for index, r in enumerate(results):
         if r.skipped:
-            time_text = "пропущено"
+            time_text = "—"
+            result_text = "Пропущено"
+            tag = "skipped"
         else:
             time_text = f"{r.time_s * 1000:.3f}"
+            result_text = "✓ Верно" if r.correct else "✕ Ошибка"
+            tag = "even" if index % 2 == 0 else "odd"
+
+            if not r.correct:
+                tag = "wrong"
 
         tree.insert(
             "",
@@ -814,8 +862,9 @@ def fill_table():
                 time_text,
                 fmt_int(r.comparisons),
                 fmt_int(r.moves),
-                "да" if r.correct else "НЕТ"
-            )
+                result_text
+            ),
+            tags=(tag,)
         )
 
 
