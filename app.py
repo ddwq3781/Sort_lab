@@ -5,6 +5,7 @@
 """
 
 import queue
+import random
 import re
 import threading
 import tkinter as tk
@@ -143,7 +144,7 @@ def create_interface():
 
 
 def create_left_panel(parent):
-     global sizes_var
+    global sizes_var
     global repeats_var
     global limit_var
     global seed_var
