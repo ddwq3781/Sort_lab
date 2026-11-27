@@ -5,7 +5,6 @@
 """
 
 import queue
-import random
 import re
 import threading
 import tkinter as tk
@@ -15,7 +14,7 @@ import matplotlib
 
 matplotlib.use("TkAgg")
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from algorithms import ALGORITHMS, THEORY
 from data_generators import KINDS, DESCRIPTIONS, generate
@@ -65,7 +64,6 @@ notebook = None
 
 metric_cb = None
 kind_cb = None
-log_var = None
 
 fig = None
 ax = None
@@ -306,7 +304,6 @@ def create_left_panel(parent):
 def create_chart_tab():
     global metric_cb
     global kind_cb
-    global log_var
     global fig
     global ax
     global canvas
@@ -346,22 +343,10 @@ def create_chart_tab():
         chart_selection_changed
     )
 
-    log_var = tk.BooleanVar(value=True)
-
-    ttk.Checkbutton(
-        controls,
-        text="Логарифмические оси",
-        variable=log_var,
-        command=redraw_chart
-    ).pack(side="left")
-
     fig = Figure(figsize=(8, 5.5), dpi=100)
     ax = fig.add_subplot(111)
 
     canvas = FigureCanvasTkAgg(fig, master=tab)
-
-    toolbar = NavigationToolbar2Tk(canvas, tab)
-    toolbar.update()
 
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
@@ -771,7 +756,6 @@ def redraw_chart():
 
     attr, factor = METRICS[label]
 
-    log = log_var.get()
 
     plotted = False
 
@@ -784,9 +768,6 @@ def redraw_chart():
                 v = getattr(r, attr)
 
                 if v is None:
-                    continue
-
-                if log and v <= 0:
                     continue
 
                 xs.append(r.size)
@@ -808,10 +789,6 @@ def redraw_chart():
         ax.set_xlabel("Размер массива n")
         ax.set_ylabel(label)
         ax.set_title(f"{label} — {kind}")
-
-        if log:
-            ax.set_xscale("log")
-            ax.set_yscale("log")
 
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(fontsize=8)
