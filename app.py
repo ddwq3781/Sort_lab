@@ -51,34 +51,17 @@ anim_last = ([], (), False)
 alg_vars = {}
 kind_vars = {}
 
-sizes_var = None
-repeats_var = None
-limit_var = None
-seed_var = None
+sizes_var = repeats_var = limit_var = seed_var = None
 
-run_btn = None
-stop_btn = None
-progress = None
-status_var = None
+run_btn = stop_btn = progress = status_var = None
 
-notebook = None
+notebook = metric_cb = kind_cb = None
 
-metric_cb = None
-kind_cb = None
+fig = ax = canvas = None
+tree = text = None
 
-fig = None
-ax = None
-canvas = None
-
-tree = None
-text = None
-
-anim_alg_cb = None
-anim_kind_cb = None
-anim_n_var = None
-anim_speed = None
-anim_status = None
-anim_canvas = None
+anim_alg_cb = anim_kind_cb = anim_n_var = None
+anim_speed = anim_status = anim_canvas = None
 
 
 def fmt_int(x):
