@@ -87,8 +87,7 @@ def fmt_int(x):
 
 
 def parse_sizes(text):
-    parts = re.split(r"[,\s;]+", text.strip())
-    parts = [p for p in parts if p]
+    parts = [p for p in re.split(r"[,\s;]+", text.strip()) if p]
 
     if not parts:
         raise ValueError("Укажите хотя бы один размер массива.")
@@ -144,9 +143,7 @@ def create_interface():
 
 
 def create_left_panel(parent):
-    global alg_vars
-    global kind_vars
-    global sizes_var
+     global sizes_var
     global repeats_var
     global limit_var
     global seed_var
@@ -543,22 +540,17 @@ def anim_canvas_resized(event=None):
 
 # Эксперимент (в отдельном потоке, чтобы окно не зависало)
 
+def selected_items(variables):
+    return [name for name, var in variables.items() if var.get()]
+
+
 def start_benchmark():
     global params_text
     global running
     global cancel
 
-    names = []
-
-    for name, var in alg_vars.items():
-        if var.get():
-            names.append(name)
-
-    kinds = []
-
-    for kind, var in kind_vars.items():
-        if var.get():
-            kinds.append(kind)
+    names = selected_items(alg_vars)
+    kinds = selected_items(kind_vars)
 
     if not names or not kinds:
         messagebox.showwarning(
@@ -655,6 +647,8 @@ def stop_benchmark():
 
 
 def poll_queue():
+    global running
+
     if closing:
         return
 
@@ -684,8 +678,6 @@ def poll_queue():
                 finish_benchmark(res, cancelled)
 
             elif kind == "error":
-                global running
-
                 running = False
 
                 run_btn.configure(state="normal")
