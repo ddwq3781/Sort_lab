@@ -321,10 +321,7 @@ def create_chart_tab():
     )
     metric_cb.current(0)
     metric_cb.pack(side="left", padx=(4, 14))
-    metric_cb.bind(
-        "<<ComboboxSelected>>",
-        chart_selection_changed
-    )
+    metric_cb.bind("<<ComboboxSelected>>", redraw_chart)
 
     ttk.Label(controls, text="Тип данных:").pack(side="left")
 
@@ -335,10 +332,7 @@ def create_chart_tab():
         width=24
     )
     kind_cb.pack(side="left", padx=(4, 14))
-    kind_cb.bind(
-        "<<ComboboxSelected>>",
-        chart_selection_changed
-    )
+    kind_cb.bind("<<ComboboxSelected>>", redraw_chart)
 
     fig = Figure(figsize=(8, 5.5), dpi=100)
     ax = fig.add_subplot(111)
@@ -347,10 +341,6 @@ def create_chart_tab():
 
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
-    redraw_chart()
-
-
-def chart_selection_changed(event=None):
     redraw_chart()
 
 
@@ -740,7 +730,7 @@ def finish_benchmark(res, cancelled):
 
 # Отображение результатов
 
-def redraw_chart():
+def redraw_chart(event=None):
     ax.clear()
 
     kind = kind_cb.get()
