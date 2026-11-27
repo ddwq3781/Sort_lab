@@ -823,7 +823,7 @@ def set_conclusions():
     text.configure(state="normal")
     text.delete("1.0", "end")
 
-    body = build_conclusions(results)
+    body = build_conclusions(results) or ""
 
     if results:
         descr = []
