@@ -1,4 +1,3 @@
-
 """
 Запуск:   python app.py
 Нужно:    pip install matplotlib
@@ -15,13 +14,12 @@ import matplotlib
 
 matplotlib.use("TkAgg")
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from algorithms import ALGORITHMS, THEORY
 from data_generators import KINDS, DESCRIPTIONS, generate
 from benchmark import run_benchmark, export_csv, build_conclusions, series
 from visual_sorts import VISUAL_SORTS
-
 
 METRICS = {
     "Время, мс": ("time_s", 1000),
@@ -51,46 +49,25 @@ anim_last = ([], (), False)
 alg_vars = {}
 kind_vars = {}
 
-sizes_var = None
-repeats_var = None
-limit_var = None
-seed_var = None
+sizes_var = repeats_var = limit_var = seed_var = None
 
-run_btn = None
-stop_btn = None
-progress = None
-status_var = None
+run_btn = stop_btn = progress = status_var = None
 
-notebook = None
+notebook = metric_cb = kind_cb = None
 
-metric_cb = None
-kind_cb = None
-log_var = None
+fig = ax = canvas = None
+tree = text = None
 
-fig = None
-ax = None
-canvas = None
-
-tree = None
-text = None
-
-anim_alg_cb = None
-anim_kind_cb = None
-anim_n_var = None
-anim_speed = None
-anim_status = None
-anim_canvas = None
-
+anim_alg_cb = anim_kind_cb = anim_n_var = None
+anim_speed = anim_status = anim_canvas = None
 
 def fmt_int(x):
     if x is None:
         return "—"
     return f"{x:,}".replace(",", " ")
 
-
 def parse_sizes(text):
-    parts = re.split(r"[,\s;]+", text.strip())
-    parts = [p for p in parts if p]
+    parts = [p for p in re.split(r"[,\s;]+", text.strip()) if p]
 
     if not parts:
         raise ValueError("Укажите хотя бы один размер массива.")
@@ -115,7 +92,6 @@ def parse_sizes(text):
     sizes = sorted(set(sizes))
 
     return sizes
-
 
 # Построение интерфейса
 
@@ -144,10 +120,7 @@ def create_interface():
     create_conclusions_tab()
     create_anim_tab()
 
-
 def create_left_panel(parent):
-    global alg_vars
-    global kind_vars
     global sizes_var
     global repeats_var
     global limit_var
@@ -302,11 +275,9 @@ def create_left_panel(parent):
         foreground="#444444"
     ).pack(anchor="w")
 
-
 def create_chart_tab():
     global metric_cb
     global kind_cb
-    global log_var
     global fig
     global ax
     global canvas
@@ -327,10 +298,7 @@ def create_chart_tab():
     )
     metric_cb.current(0)
     metric_cb.pack(side="left", padx=(4, 14))
-    metric_cb.bind(
-        "<<ComboboxSelected>>",
-        chart_selection_changed
-    )
+    metric_cb.bind("<<ComboboxSelected>>", redraw_chart)
 
     ttk.Label(controls, text="Тип данных:").pack(side="left")
 
@@ -341,84 +309,104 @@ def create_chart_tab():
         width=24
     )
     kind_cb.pack(side="left", padx=(4, 14))
-    kind_cb.bind(
-        "<<ComboboxSelected>>",
-        chart_selection_changed
-    )
-
-    log_var = tk.BooleanVar(value=True)
-
-    ttk.Checkbutton(
-        controls,
-        text="Логарифмические оси",
-        variable=log_var,
-        command=redraw_chart
-    ).pack(side="left")
+    kind_cb.bind("<<ComboboxSelected>>", redraw_chart)
 
     fig = Figure(figsize=(8, 5.5), dpi=100)
     ax = fig.add_subplot(111)
 
     canvas = FigureCanvasTkAgg(fig, master=tab)
 
-    toolbar = NavigationToolbar2Tk(canvas, tab)
-    toolbar.update()
-
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
     redraw_chart()
 
-
-def chart_selection_changed(event=None):
-    redraw_chart()
-
-
 def create_table_tab():
     global tree
 
-    tab = ttk.Frame(notebook, padding=6)
+    tab = ttk.Frame(notebook, padding=10)
     notebook.add(tab, text="  Таблица  ")
+
+    ttk.Label(
+        tab,
+        text="Результаты эксперимента",
+        font=("Segoe UI", 13, "bold")
+    ).pack(anchor="w", pady=(0, 3))
+
+    ttk.Label(
+        tab,
+        text="Время указано в миллисекундах. Пропущенные замеры отмечены отдельно.",
+        foreground="#666666"
+    ).pack(anchor="w", pady=(0, 10))
+
+    table_frame = ttk.Frame(tab)
+    table_frame.pack(fill="both", expand=True)
 
     cols = ("alg", "kind", "n", "time", "cmp", "mv", "ok")
 
     heads = (
         "Алгоритм",
         "Тип данных",
-        "n",
+        "Размер массива",
         "Время, мс",
         "Сравнения",
-        "Перестановки/записи",
-        "Верно"
+        "Перестановки / записи",
+        "Результат"
     )
 
-    widths = (170, 170, 80, 110, 130, 150, 60)
+    widths = (175, 165, 115, 105, 120, 165, 105)
+
+    style = ttk.Style(root)
+    style.configure(
+        "Results.Treeview",
+        font=("Segoe UI", 10),
+        rowheight=29
+    )
+    style.configure(
+        "Results.Treeview.Heading",
+        font=("Segoe UI", 10, "bold"),
+        padding=(6, 9)
+    )
 
     tree = ttk.Treeview(
-        tab,
+        table_frame,
         columns=cols,
-        show="headings"
+        show="headings",
+        style="Results.Treeview"
     )
 
     for c, h, w in zip(cols, heads, widths):
         tree.heading(c, text=h)
 
-        anchor = "w"
+        anchor = "w" if c in ("alg", "kind") else "center"
+        tree.column(c, width=w, minwidth=75, anchor=anchor, stretch=True)
 
-        if c not in ("alg", "kind"):
-            anchor = "e"
+    tree.tag_configure("even", background="#f3f6fa")
+    tree.tag_configure("odd", background="#ffffff")
+    tree.tag_configure("wrong", background="#fce8e6")
+    tree.tag_configure("skipped", foreground="#777777")
 
-        tree.column(c, width=w, anchor=anchor)
-
-    sb = ttk.Scrollbar(
-        tab,
+    vertical = ttk.Scrollbar(
+        table_frame,
         orient="vertical",
         command=tree.yview
     )
+    horizontal = ttk.Scrollbar(
+        table_frame,
+        orient="horizontal",
+        command=tree.xview
+    )
 
-    tree.configure(yscrollcommand=sb.set)
+    tree.configure(
+        yscrollcommand=vertical.set,
+        xscrollcommand=horizontal.set
+    )
 
-    tree.pack(side="left", fill="both", expand=True)
-    sb.pack(side="right", fill="y")
+    tree.grid(row=0, column=0, sticky="nsew")
+    vertical.grid(row=0, column=1, sticky="ns")
+    horizontal.grid(row=1, column=0, sticky="ew")
 
+    table_frame.rowconfigure(0, weight=1)
+    table_frame.columnconfigure(0, weight=1)
 
 def create_conclusions_tab():
     global text
@@ -446,7 +434,6 @@ def create_conclusions_tab():
     sb.pack(side="right", fill="y")
 
     set_conclusions()
-
 
 def create_anim_tab():
     global anim_alg_cb
@@ -551,29 +538,21 @@ def create_anim_tab():
         anim_canvas_resized
     )
 
-
 def anim_canvas_resized(event=None):
     anim_draw(*anim_last)
 
-
 # Эксперимент (в отдельном потоке, чтобы окно не зависало)
+
+def selected_items(variables):
+    return [name for name, var in variables.items() if var.get()]
 
 def start_benchmark():
     global params_text
     global running
     global cancel
 
-    names = []
-
-    for name, var in alg_vars.items():
-        if var.get():
-            names.append(name)
-
-    kinds = []
-
-    for kind, var in kind_vars.items():
-        if var.get():
-            kinds.append(kind)
+    names = selected_items(alg_vars)
+    kinds = selected_items(kind_vars)
 
     if not names or not kinds:
         messagebox.showwarning(
@@ -597,7 +576,6 @@ def start_benchmark():
             raise ValueError(
                 "Число повторов и лимит должны быть положительными."
             )
-
     except ValueError as e:
         messagebox.showerror(
             "Проверьте параметры",
@@ -630,7 +608,6 @@ def start_benchmark():
 
     root.after(100, poll_queue)
 
-
 def benchmark_worker(names, kinds, sizes, repeats, limit, seed, stop_event):
     try:
         res = run_benchmark(
@@ -647,18 +624,15 @@ def benchmark_worker(names, kinds, sizes, repeats, limit, seed, stop_event):
         msg_queue.put(
             ("done", res, stop_event.is_set())
         )
-
     except Exception as exc:
         msg_queue.put(
             ("error", repr(exc))
         )
 
-
 def benchmark_progress(done, total, text_message):
     msg_queue.put(
         ("progress", done, total, text_message)
     )
-
 
 def stop_benchmark():
     if running:
@@ -668,8 +642,9 @@ def stop_benchmark():
             "Останавливаю… (дождёмся конца текущего замера)"
         )
 
-
 def poll_queue():
+    global running
+
     if closing:
         return
 
@@ -691,16 +666,12 @@ def poll_queue():
                 status_var.set(
                     f"{done}/{total}  {text_message}"
                 )
-
             elif kind == "done":
                 res = msg[1]
                 cancelled = msg[2]
 
                 finish_benchmark(res, cancelled)
-
             elif kind == "error":
-                global running
-
                 running = False
 
                 run_btn.configure(state="normal")
@@ -712,13 +683,11 @@ def poll_queue():
                     "Ошибка",
                     msg[1]
                 )
-
     except queue.Empty:
         pass
 
     if running:
         root.after(100, poll_queue)
-
 
 def finish_benchmark(res, cancelled):
     global running
@@ -760,18 +729,15 @@ def finish_benchmark(res, cancelled):
 
     notebook.select(0)
 
-
 # Отображение результатов
 
-def redraw_chart():
+def redraw_chart(event=None):
     ax.clear()
 
     kind = kind_cb.get()
     label = metric_cb.get()
 
     attr, factor = METRICS[label]
-
-    log = log_var.get()
 
     plotted = False
 
@@ -784,9 +750,6 @@ def redraw_chart():
                 v = getattr(r, attr)
 
                 if v is None:
-                    continue
-
-                if log and v <= 0:
                     continue
 
                 xs.append(r.size)
@@ -809,13 +772,8 @@ def redraw_chart():
         ax.set_ylabel(label)
         ax.set_title(f"{label} — {kind}")
 
-        if log:
-            ax.set_xscale("log")
-            ax.set_yscale("log")
-
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(fontsize=8)
-
     else:
         ax.set_axis_off()
 
@@ -834,15 +792,21 @@ def redraw_chart():
     fig.tight_layout()
     canvas.draw_idle()
 
-
 def fill_table():
     tree.delete(*tree.get_children())
 
-    for r in results:
+    for index, r in enumerate(results):
         if r.skipped:
-            time_text = "пропущено"
+            time_text = "—"
+            result_text = "Пропущено"
+            tag = "skipped"
         else:
             time_text = f"{r.time_s * 1000:.3f}"
+            result_text = "✓ Верно" if r.correct else "✕ Ошибка"
+            tag = "even" if index % 2 == 0 else "odd"
+
+            if not r.correct:
+                tag = "wrong"
 
         tree.insert(
             "",
@@ -854,16 +818,16 @@ def fill_table():
                 time_text,
                 fmt_int(r.comparisons),
                 fmt_int(r.moves),
-                "да" if r.correct else "НЕТ"
-            )
+                result_text
+            ),
+            tags=(tag,)
         )
-
 
 def set_conclusions():
     text.configure(state="normal")
     text.delete("1.0", "end")
 
-    body = build_conclusions(results)
+    body = build_conclusions(results) or ""
 
     if results:
         descr = []
@@ -884,7 +848,6 @@ def set_conclusions():
     text.insert("end", body)
 
     text.configure(state="disabled")
-
 
 # Сохранение
 
@@ -910,13 +873,11 @@ def save_csv():
                 "Готово",
                 f"Таблица сохранена:\n{path}"
             )
-
         except OSError as e:
             messagebox.showerror(
                 "Не удалось сохранить",
                 str(e)
             )
-
 
 def save_chart():
     path = filedialog.asksaveasfilename(
@@ -933,20 +894,17 @@ def save_chart():
                 "Готово",
                 f"График сохранён:\n{path}"
             )
-
         except OSError as e:
             messagebox.showerror(
                 "Не удалось сохранить",
                 str(e)
             )
 
-
 # Анимация сортировки
 
 def anim_size():
     try:
         n = int(anim_n_var.get())
-
     except ValueError:
         n = 40
 
@@ -955,7 +913,6 @@ def anim_size():
     anim_n_var.set(str(n))
 
     return n
-
 
 def anim_new_array():
     global anim_data
@@ -976,7 +933,6 @@ def anim_new_array():
 
     anim_draw(anim_data, (), False)
 
-
 def anim_start():
     global anim_work
     global anim_gen
@@ -995,7 +951,6 @@ def anim_start():
 
     anim_step()
 
-
 def anim_stop():
     global anim_job
     global anim_gen
@@ -1005,7 +960,6 @@ def anim_stop():
         anim_job = None
 
     anim_gen = None
-
 
 def anim_step():
     global anim_job
@@ -1017,7 +971,6 @@ def anim_step():
 
     try:
         state, active = next(anim_gen)
-
     except StopIteration:
         anim_job = None
         anim_gen = None
@@ -1042,7 +995,6 @@ def anim_step():
         max(1, int(anim_speed.get())),
         anim_step
     )
-
 
 def anim_draw(arr, active, done):
     global anim_last
@@ -1076,10 +1028,8 @@ def anim_draw(arr, active, done):
 
         if done:
             color = "#2e7d32"
-
         elif i in active:
             color = "#d32f2f"
-
         else:
             color = "#4a78c2"
 
@@ -1092,7 +1042,6 @@ def anim_draw(arr, active, done):
             outline=""
         )
 
-
 def on_close():
     global closing
 
@@ -1103,7 +1052,6 @@ def on_close():
     anim_stop()
 
     root.destroy()
-
 
 def main():
     global root
@@ -1124,7 +1072,6 @@ def main():
     )
 
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()
